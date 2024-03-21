@@ -1,5 +1,6 @@
 import streamlit as st
-import models.dummy_text_classification_module as dummy_model # Import your Python code for text classification
+import numpy as np
+from tensorflow.keras.models import load_model
 
 # Define the Streamlit app
 def main():
@@ -10,11 +11,26 @@ def main():
 
     # Add a button to run the classification
     if st.button("Classify"):
-        # Call your text classification function
-        classification_result = dummy_model.classify_text(user_input)
+        if user_input:
+            # Load LSTM model
+            model_path = './models/classification/best_lstm.h5'
+            model = load_model(model_path)
+            
+            # Make predictions using the loaded LSTM model
+            classification_result = classify_text(user_input, model)
+            
+            # Display the classification result
+            st.write("Classification Result:", classification_result)
+        else:
+            st.warning("Please enter some text.")
 
-        # Display the classification result
-        st.write("Classification Result:", classification_result)
+# Function to classify text
+def classify_text(text, model):
+    # Convert text to numpy array
+    text_array = np.array([text])
+    # Make predictions using the loaded LSTM model
+    predictions = model.predict(text_array)
+    return predictions
 
 # Run the Streamlit app
 if __name__ == "__main__":
