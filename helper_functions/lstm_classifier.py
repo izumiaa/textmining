@@ -21,6 +21,17 @@ from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 stop_list = nltk.corpus.stopwords.words('english')
 stemmer = nltk.stem.porter.PorterStemmer()
 emotion_labels = ['deception', 'money','payment','celebration','achievement']
+features = ['num_chars', 'num_sentences', 'num_words',
+    'misspelling_percentage', 'pos_verbs_percentage',
+    'spaces_percentage', 'sentiment_score',
+    'deception_score', 'money_score', 'payment_score', 'celebration_score',
+    'achievement_score', 'url_presence', 'phone_number_presence'] 
+
+features_to_normalise = ['num_chars', 'num_sentences', 'num_words',
+    'misspelling_percentage', 'pos_verbs_percentage',
+    'spaces_percentage', 'sentiment_score',
+    'deception_score', 'money_score', 'payment_score', 'celebration_score',
+    'achievement_score'] 
 
 #################################################### 
 # convert the text input to dataframe 
@@ -151,6 +162,25 @@ def generate_features(df):
     # df['binary_label'] = df['label'].apply(encode)
     return df
 
+
+#################################################### 
+# Feature selection 
+####################################################
+def feature_selection(df, features_to_normalise):
+    df_norm = df.copy()
+    scaler = MinMaxScaler()
+    for col in features_to_normalise:
+        df_norm[col] = scaler.fit_transform(df_norm[[col]])
+    
+    # final_df = df_norm[['label', 'text', 'cleaned_text', 'preprocessed_tokens',
+    #    'punctuation_percentage', 'num_sentences',
+    #    'num_misspellings', 'misspelling_percentage', 'num_pos_verbs',
+    #    'spaces_percentage', 'sentiment_score', 'money_score', 'payment_score', 
+    #    'celebration_score', 'achievement_score', 'url_presence', 
+    #    'phone_number_presence','binary_label', 'pos_verbs_percentage']]
+    
+    return df_norm
+
 #################################################### 
 # Preprocess text 
 ####################################################
@@ -214,6 +244,9 @@ def classify_text(text, model_path):
     
     # Feature engineering
     df_features = generate_features(df)
+
+    # Feature selection
+    feature_selection(df, features_to_normalise)
 
     # Preprocess text
     df_features = preprocess_text2(df_features)
