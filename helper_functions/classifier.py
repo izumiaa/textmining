@@ -17,6 +17,11 @@ from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from sklearn.feature_extraction.text import CountVectorizer
+from scipy.sparse import hstack
+from collections import Counter
+from joblib import load
+
 
 stop_list = nltk.corpus.stopwords.words('english')
 stemmer = nltk.stem.porter.PorterStemmer()
@@ -234,13 +239,19 @@ def prep_and_tokenize(df):
     X_input_text = tokenizer.texts_to_sequences(input_text_data)
     max_length = 200 # majority of sequences have less than 200 tokens
     X_input_text = pad_sequences(X_input_text, maxlen=max_length)
-    return X_input_text, input_numerical_features
+
+    # Count Vectorizer
+    vectorizer = load(r'models\classfication\count_vectorizer.pkl')
+    X_text_vector = vectorizer.transform(input_text_data)
+    X = hstack((X_text_vector, input_numerical_features))
+
+    return X_input_text, input_numerical_features, X
 
 #################################################### 
 # Return the classification 
 ####################################################
 
-def get_classification(X_input_text, input_numerical_features, checkpoint_filepath):
+def get_classification_lstm(X_input_text, input_numerical_features, checkpoint_filepath):
     # Callback
     checkpoint_callback = ModelCheckpoint(filepath=checkpoint_filepath,
                                         monitor='val_loss',
@@ -253,6 +264,13 @@ def get_classification(X_input_text, input_numerical_features, checkpoint_filepa
 
     y_pred = best_model.predict([X_input_text, input_numerical_features])
     y_pred = (y_pred > 0.5).astype(int)  # Convert probabilities to binary predictions
+    return y_pred
+
+def get_classification(text_vector, filepath):
+
+    model = load(filepath)
+
+    y_pred = model.predict(text_vector)
     return y_pred
 
 #################################################### 
@@ -274,14 +292,21 @@ def classify_text(text, model_path):
     df_features = preprocess_text2(df_features)
 
     # Prep input data
-    X_input_text, input_numerical_features = prep_and_tokenize(df_features)
+    X_input_text, input_numerical_features, text_vector = prep_and_tokenize(df_features)
 
     # Get classification
-    class_result = get_classification(X_input_text, input_numerical_features, model_path)
+    lstm_result = get_classification_lstm(X_input_text, input_numerical_features, model_path)
+    nb_result = get_classification(text_vector, r'models\classfication\naive_bayes_model.joblib')
+    lr_result = get_classification(text_vector, r'models\classfication\logistic_regression_model.joblib')
+    res = [lstm_result, nb_result, lr_result]
+    res = [arr[0][0] if arr.ndim == 2 else arr[0] for arr in res]
+    counter = Counter(res)
+    class_result = counter.most_common(1)[0][0]
 
     return class_result
 
-# model_path = "../models/classfication/best_lstm.h5"
+
+# model_path = "models/classfication/best_lstm.h5"
 # output1 = classify_text("Congratulations! You've won a free trip to the Bahamas! Claim your prize now by clicking on the link below.", model_path); 
 # output2 = classify_text("Your account has been compromised. Please transfer $5000 to unlock your prize winnings.", model_path); 
 # output3 = classify_text("The weather forecast predicts sunny skies and warm temperatures for the weekend. It's a great time to plan outdoor activities with friends and family", model_path); 

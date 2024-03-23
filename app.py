@@ -1,7 +1,7 @@
 import streamlit as st
 import numpy as np
 
-from helper_functions.lstm_classifier import classify_text
+from helper_functions.classifier import classify_text
 
 # Define the Streamlit app
 def main():
