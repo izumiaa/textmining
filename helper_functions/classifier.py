@@ -298,10 +298,10 @@ def classify_text(text, model_path):
     lstm_result = get_classification_lstm(X_input_text, input_numerical_features, model_path)
     nb_result = get_classification(text_vector, r'models\classfication\naive_bayes_model.joblib')
     lr_result = get_classification(text_vector, r'models\classfication\logistic_regression_model.joblib')
-    res = [lstm_result, nb_result, lr_result]
+    res = [lstm_result, nb_result*2, lr_result]
     res = [arr[0][0] if arr.ndim == 2 else arr[0] for arr in res]
-    counter = Counter(res)
-    class_result = counter.most_common(1)[0][0]
+    class_result = round(sum(res)/4)
+    print(res)
 
     return class_result
 
