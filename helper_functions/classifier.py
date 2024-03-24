@@ -9,10 +9,6 @@ from string import punctuation
 from spellchecker import SpellChecker
 from empath import Empath
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.feature_selection import SelectKBest, chi2
-from sklearn.model_selection import train_test_split
-from tensorflow.keras.layers import Input, Embedding, LSTM, concatenate, Dense, SpatialDropout1D, Bidirectional, Dropout
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -21,6 +17,8 @@ from sklearn.feature_extraction.text import CountVectorizer
 from scipy.sparse import hstack
 from collections import Counter
 from joblib import load
+from transformers import BertTokenizer, BertForSequenceClassification
+import torch
 
 
 stop_list = nltk.corpus.stopwords.words('english')
@@ -243,9 +241,19 @@ def prep_and_tokenize(df):
     # Count Vectorizer
     vectorizer = load(r'models\classfication\count_vectorizer.pkl')
     X_text_vector = vectorizer.transform(input_text_data)
-    X = hstack((X_text_vector, input_numerical_features))
+    text_vector = hstack((X_text_vector, input_numerical_features))
 
-    return X_input_text, input_numerical_features, X
+    # Bert Vectorizer
+    max_seq_length = 128
+    tokenizer = BertTokenizer.from_pretrained('prajjwal1/bert-tiny')
+    tokenized_texts = [tokenizer.tokenize(text)[:max_seq_length] for text in input_text_data] 
+    input_ids = [tokenizer.convert_tokens_to_ids(tokens) for tokens in tokenized_texts]
+    input_ids = torch.tensor([ids + [0]*(max_seq_length-len(ids)) for ids in input_ids], dtype=torch.long)
+    numerical_features_array = np.array(input_numerical_features, dtype=np.float32)
+    numerical_features_tensor = torch.tensor(numerical_features_array)
+    combined_features = torch.cat([input_ids, numerical_features_tensor], dim=1)
+
+    return X_input_text, input_numerical_features, text_vector, combined_features
 
 #################################################### 
 # Return the classification 
@@ -265,6 +273,19 @@ def get_classification_lstm(X_input_text, input_numerical_features, checkpoint_f
     y_pred = best_model.predict([X_input_text, input_numerical_features])
     y_pred = (y_pred > 0.5).astype(int)  # Convert probabilities to binary predictions
     return y_pred
+
+def get_classification_bert(combined_features, filepath):
+
+    model = BertForSequenceClassification.from_pretrained('prajjwal1/bert-tiny', num_labels=2)
+    state_dict = torch.load(filepath)
+    state_dict.pop('bert.embeddings.position_ids')
+    model.load_state_dict(state_dict)
+
+    logits = model(combined_features.long()).logits  # Convert input tensor to long tensor
+    predictions = torch.argmax(logits, dim=1)
+    predictions = predictions.numpy()
+
+    return predictions
 
 def get_classification(text_vector, filepath):
 
@@ -292,13 +313,14 @@ def classify_text(text, model_path):
     df_features = preprocess_text2(df_features)
 
     # Prep input data
-    X_input_text, input_numerical_features, text_vector = prep_and_tokenize(df_features)
+    X_input_text, input_numerical_features, text_vector, combined_features = prep_and_tokenize(df_features)
 
     # Get classification
     lstm_result = get_classification_lstm(X_input_text, input_numerical_features, model_path)
     nb_result = get_classification(text_vector, r'models\classfication\naive_bayes_model.joblib')
     lr_result = get_classification(text_vector, r'models\classfication\logistic_regression_model.joblib')
-    res = [lstm_result, nb_result*2, lr_result]
+    bert_result = get_classification_bert(combined_features, r'models\classfication\bert_model.pth')
+    res = [lstm_result, nb_result, lr_result, bert_result]
     res = [arr[0][0] if arr.ndim == 2 else arr[0] for arr in res]
     class_result = round(sum(res)/4)
     print(res)
