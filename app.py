@@ -47,15 +47,15 @@ def main():
                 st.markdown("<p style='font-size: 36px; color: green;'>Not scam!</p>", unsafe_allow_html=True)
 
             # Call the get_topic function to extract the topic and coherence score
-            # path = './data/train_data.csv'
-            # topic_chosen_dict, topic_label, topic_coher_score = get_topic(path, user_input)
+            path = './data/train_data.csv'
+            topic_chosen_dict, topic_label, topic_coher_score = get_topic(path, user_input)
 
-            # # Display the coherence score
-            # st.write(f"The coherence score of your text with the topic chosen is {round(topic_coher_score, 4)}")
+            # Display the coherence score
+            st.write(f"The coherence score of your text with the topic chosen is {round(topic_coher_score, 4)}")
 
-            # # Generate and display the word cloud
-            # st.markdown("<p style='font-size: 24px; margin-top: 20px;'>Word Cloud for Chosen Topic:</p>", unsafe_allow_html=True)
-            # generate_wordcloud_per_topic(topic_chosen_dict, topic_label)
+            # Generate and display the word cloud
+            st.markdown("<p style='font-size: 24px; margin-top: 20px;'>Word Cloud for Chosen Topic:</p>", unsafe_allow_html=True)
+            generate_wordcloud_per_topic(topic_chosen_dict, topic_label)
         else:
             st.warning("Please enter some text.")
 
